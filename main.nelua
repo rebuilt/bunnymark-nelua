@@ -1,0 +1,99 @@
+require "vector"
+require "raylib"
+
+-- Constants
+--------------------------------------------------------------------------------------
+local MAX_BUNNIES: uint32 <const> = 200000      -- bunnies limit
+local MAX_BATCH_ELEMENTS: uint16 <const> = 8192 -- maximum quads per draw batch
+local SCREEN_WIDTH: uint16 <const> = 1280
+local SCREEN_HEIGHT: uint16 <const> = 720
+--------------------------------------------------------------------------------------
+
+-- Types and Structures Definition
+--------------------------------------------------------------------------------------
+local Bunny = @record {
+    position: rl.vector2,
+    speed: rl.vector2,
+    color: rl.color
+}
+--------------------------------------------------------------------------------------
+
+-- Initialization
+--------------------------------------------------------------------------------------
+rl.initWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "raylib [textures] example - bunnymark")
+
+local texBunny = rl.loadTexture("resources/raybunny.png") -- Load bunny texture
+
+local bunnies: vector(Bunny) = {}   -- Bunnies vector
+local bunniesCount: uint32 = 0      -- Bunnies counter
+
+local paused: boolean = false
+
+-- rl.setTargetFPS(60)  -- Set our game to run at 60 frames-per-second
+--------------------------------------------------------------------------------------
+
+-- Main game loop
+while not rl.windowShouldClose() do  -- Detect window close button or ESC key
+    -- Update
+    ----------------------------------------------------------------------------------
+    if rl.isMouseButtonDown(rl.mouseButton.LEFT_BUTTON) then
+        -- Create more bunnies
+        for i = 1, 100 do
+            if bunniesCount < MAX_BUNNIES then
+                local speed = rl.vector2{
+                    x = rl.getRandomValue(-250, 250),
+                    y = rl.getRandomValue(-250, 250)}
+                local color = rl.color{
+                    rl.getRandomValue(50, 240),
+                    rl.getRandomValue(80, 240),
+                    rl.getRandomValue(100, 240), 255}
+                bunnies:push(Bunny{rl.getMousePosition(), speed, color})
+                bunniesCount = bunniesCount + 1
+            end
+        end
+    end
+
+    if rl.isKeyPressed(rl.keyboardKey.P) then paused = not paused end
+
+    if not paused then
+        -- Update bunnies
+        for i = 0, #bunnies - 1 do
+            bunnies[i].position.x = bunnies[i].position.x + bunnies[i].speed.x*rl.getFrameTime()
+            bunnies[i].position.y = bunnies[i].position.y + bunnies[i].speed.y*rl.getFrameTime()
+
+            if ((bunnies[i].position.x + texBunny.width/2) > rl.getScreenWidth()) or
+               ((bunnies[i].position.x + texBunny.width/2) < 0) then
+                bunnies[i].speed.x = bunnies[i].speed.x * -1
+            end
+            if ((bunnies[i].position.y + texBunny.height/2) > rl.getScreenHeight()) or
+               ((bunnies[i].position.y + texBunny.height/2 - 40) < 0) then
+                bunnies[i].speed.y = bunnies[i].speed.y * -1
+            end
+        end
+    end
+    ----------------------------------------------------------------------------------
+
+    -- Draw
+    ----------------------------------------------------------------------------------
+    rl.drawing(function()
+        rl.clearBackground(rl.RAYWHITE)
+
+        for i = 0, #bunnies - 1 do
+            rl.drawTexture(texBunny, (@cint)(bunnies[i].position.x), (@cint)(bunnies[i].position.y), bunnies[i].color)
+        end
+
+        rl.drawRectangle(0, 0, SCREEN_WIDTH, 40, rl.BLACK)
+        rl.drawText(rl.textFormat("bunnies: %i", bunniesCount), 120, 10, 20, rl.GREEN)
+        rl.drawText(rl.textFormat("batched draw calls: %i", 1 + bunniesCount/MAX_BATCH_ELEMENTS), 320, 10, 20, rl.MAROON)
+
+        rl.drawFPS(10, 10)
+    end)
+    ----------------------------------------------------------------------------------
+end
+
+-- De-Initialization
+--------------------------------------------------------------------------------------
+rl.unloadTexture(texBunny)  -- Unload bunny texture
+
+rl.closeWindow()            -- Close window and OpenGL context
+--------------------------------------------------------------------------------------
